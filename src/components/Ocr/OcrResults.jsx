@@ -58,7 +58,7 @@ const OcrResults = ({ results, isLoading }) => {
           >
             <div className="px-5 py-3 bg-zinc-900/50 font-medium flex justify-between items-center backdrop-blur-sm border-b border-zinc-700/40">
               <span className="text-zinc-300 text-sm tracking-wide truncate max-w-[80%]">
-                {result.filename}
+                Detected Text
               </span>
               <motion.button
                 whileHover={{ scale: 1.1 }}
