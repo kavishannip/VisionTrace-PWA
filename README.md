@@ -15,8 +15,12 @@ VisionTrace is a Progressive Web App (PWA) that recognizes and extracts text fro
 
 ## 📱 Screenshots
 
-![VisionTrace App Screenshots](public/screenshots/mobile-1.png) ![VisionTrace App Screenshots](public/screenshots/mobile-2.png) ![VisionTrace App Screenshots](public/screenshots/mobile-3.png) ![VisionTrace App Screenshots](public/screenshots/mobile-4.png)
-
+<div style="display: flex; justify-content: space-between;">
+  <img src="public/screenshots/mobile-1.png" width="24%" alt="VisionTrace Screenshot 1">
+  <img src="public/screenshots/mobile-2.png" width="24%" alt="VisionTrace Screenshot 2">
+  <img src="public/screenshots/mobile-3.png" width="24%" alt="VisionTrace Screenshot 3">
+  <img src="public/screenshots/mobile-4.png" width="24%" alt="VisionTrace Screenshot 4">
+</div>
 ## 💻 Tech Stack
 
 - [Next.js](https://nextjs.org/)
