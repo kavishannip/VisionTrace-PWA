@@ -8,7 +8,7 @@ const Footer = () => {
       <div className="max-w-7xl mx-auto px-4 flex flex-col items-center">
         <p className="text-sm mb-4 text-center">
           <span className="text-zinc-400 font-normal">
-            Designed and developed by
+          © Designed and developed by
           </span>
           <br />
           <span className="text-zinc-300 font-bold">Kavishan Nipun</span>
