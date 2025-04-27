@@ -3,6 +3,7 @@ import "./globals.css";
 import NavBar from "@/components/NavBar/NavBar";
 import Footer from "@/components/footer/Footer";
 import { ToggleProvider } from "./context/ToggleContext";
+import { Analytics } from "@vercel/analytics/react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,6 +46,7 @@ export default function RootLayout({ children }) {
           <div>
             <Footer />
           </div>
+          <Analytics />
         </body>
       </ToggleProvider>
     </html>
