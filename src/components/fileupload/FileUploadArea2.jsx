@@ -1,13 +1,33 @@
 "use client";
 import React, { useState, useCallback } from "react";
 import { UploadCloud } from "lucide-react";
+import imageCompression from "browser-image-compression";
 
 function FileUploadArea2({ files, setFiles }) {
   const [isDragging, setIsDragging] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   const MAX_FILES = 1;
 
   // Only allow JPG and PNG files
   const allowedTypes = ["image/jpeg", "image/png"];
+
+  // Compression options
+  const compressionOptions = {
+    maxSizeMB: 1, // Max file size in MB
+    maxWidthOrHeight: 1920, // Maximum width or height in pixels
+    useWebWorker: true, // Use web worker for better performance
+    initialQuality: 0.8, // Initial quality (0 to 1)
+  };
+
+  // Handle file compression
+  const compressFile = async (file) => {
+    try {
+      return await imageCompression(file, compressionOptions);
+    } catch (error) {
+      console.error("Error compressing file:", error);
+      return file; // Return original file if compression fails
+    }
+  };
 
   const handleDragEnter = useCallback((e) => {
     e.preventDefault();
@@ -31,7 +51,7 @@ function FileUploadArea2({ files, setFiles }) {
   }, []);
 
   const handleDrop = useCallback(
-    (e) => {
+    async (e) => {
       e.preventDefault();
       e.stopPropagation();
       setIsDragging(false);
@@ -44,16 +64,26 @@ function FileUploadArea2({ files, setFiles }) {
           return;
         }
 
-        // Replace any existing file
-        setFiles([newFile]);
-        e.dataTransfer.clearData();
+        // Compress the file
+        setIsCompressing(true);
+        try {
+          const compressedFile = await compressFile(newFile);
+          // Replace any existing file
+          setFiles([compressedFile]);
+        } catch (error) {
+          console.error("Error compressing file:", error);
+          setFiles([newFile]); // Use original file if compression fails
+        } finally {
+          setIsCompressing(false);
+          e.dataTransfer.clearData();
+        }
       }
     },
     [setFiles]
   );
 
   const handleFileChange = useCallback(
-    (e) => {
+    async (e) => {
       if (e.target.files && e.target.files.length > 0) {
         const newFile = e.target.files[0];
 
@@ -62,8 +92,18 @@ function FileUploadArea2({ files, setFiles }) {
           return;
         }
 
-        // Replace any existing file
-        setFiles([newFile]);
+        // Compress the file
+        setIsCompressing(true);
+        try {
+          const compressedFile = await compressFile(newFile);
+          // Replace any existing file
+          setFiles([compressedFile]);
+        } catch (error) {
+          console.error("Error compressing file:", error);
+          setFiles([newFile]); // Use original file if compression fails
+        } finally {
+          setIsCompressing(false);
+        }
       }
     },
     [setFiles]
@@ -93,38 +133,59 @@ function FileUploadArea2({ files, setFiles }) {
           }}
         >
           <div className="flex flex-col items-center justify-center">
-            <div
-              className={`rounded-full p-4 mb-6 transition-all duration-300 ${
-                isDragging ? "bg-zinc-700/50 shadow-lg" : "bg-zinc-800/50"
-              }`}
-            >
-              <UploadCloud
-                className={`w-10 h-10 transition-all duration-300 ${
-                  isDragging ? "text-zinc-200" : "text-zinc-400"
-                }`}
-                strokeWidth={1.5}
-              />
-            </div>
-            <p className="mb-2 text-sm font-medium text-zinc-200">
-              {isDragging ? "Drop to upload" : "Upload your image"}
-            </p>
-            <p className="text-xs text-zinc-400 max-w-xs mx-auto">
-              Drag and drop your file here, or click to browse
-              <span className="block mt-1 text-zinc-500">JPG/PNG only</span>
-            </p>
-            <input
-              id="file-upload-2"
-              type="file"
-              accept=".jpg,.jpeg,.png"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            <label
-              htmlFor="file-upload-2"
-              className="mt-6 px-6 py-2 rounded-full text-sm bg-gradient-to-b from-zinc-700 to-zinc-800 text-zinc-100 cursor-pointer hover:from-zinc-600 hover:to-zinc-700 transition-all duration-300 shadow-lg shadow-zinc-900/30 border border-zinc-600/30 backdrop-blur-md"
-            >
-              Select image
-            </label>
+            {isCompressing ? (
+              <>
+                <div className="animate-pulse rounded-full p-4 mb-6 bg-zinc-700/50">
+                  <UploadCloud
+                    className="w-10 h-10 text-zinc-300"
+                    strokeWidth={1.5}
+                  />
+                </div>
+                <p className="mb-2 text-sm font-medium text-zinc-200">
+                  Compressing image...
+                </p>
+              </>
+            ) : (
+              <>
+                <div
+                  className={`rounded-full p-4 mb-6 transition-all duration-300 ${
+                    isDragging ? "bg-zinc-700/50 shadow-lg" : "bg-zinc-800/50"
+                  }`}
+                >
+                  <UploadCloud
+                    className={`w-10 h-10 transition-all duration-300 ${
+                      isDragging ? "text-zinc-200" : "text-zinc-400"
+                    }`}
+                    strokeWidth={1.5}
+                  />
+                </div>
+                <p className="mb-2 text-sm font-medium text-zinc-200">
+                  {isDragging ? "Drop to upload" : "Upload your image"}
+                </p>
+                <p className="text-xs text-zinc-400 max-w-xs mx-auto">
+                  Drag and drop your file here, or click to browse
+                  <span className="block mt-1 text-zinc-500">
+                    JPG/PNG only · Will be compressed
+                  </span>
+                </p>
+                <input
+                  id="file-upload-2"
+                  type="file"
+                  accept=".jpg,.jpeg,.png"
+                  className="hidden"
+                  onChange={handleFileChange}
+                  disabled={isCompressing}
+                />
+                <label
+                  htmlFor="file-upload-2"
+                  className={`mt-6 px-6 py-2 rounded-full text-sm bg-gradient-to-b from-zinc-700 to-zinc-800 text-zinc-100 cursor-pointer hover:from-zinc-600 hover:to-zinc-700 transition-all duration-300 shadow-lg shadow-zinc-900/30 border border-zinc-600/30 backdrop-blur-md ${
+                    isCompressing ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
+                >
+                  Select image
+                </label>
+              </>
+            )}
           </div>
         </div>
       ) : (
@@ -136,9 +197,12 @@ function FileUploadArea2({ files, setFiles }) {
             className="w-full h-auto object-cover aspect-video"
           />
           <div className="absolute bottom-0 left-0 right-0 p-3 flex justify-between items-center z-20">
-            <span className="text-sm text-zinc-200 font-medium truncate max-w-[80%]">
-              {files[0].name}
-            </span>
+            <div className="text-sm text-zinc-200 font-medium truncate max-w-[80%]">
+              <span className="block truncate">{files[0].name}</span>
+              <span className="text-xs text-zinc-400">
+                {(files[0].size / 1024).toFixed(1)} KB
+              </span>
+            </div>
             <div className="flex items-center gap-2">
               <input
                 id="replace-image"
@@ -146,17 +210,21 @@ function FileUploadArea2({ files, setFiles }) {
                 accept=".jpg,.jpeg,.png"
                 className="hidden"
                 onChange={handleFileChange}
+                disabled={isCompressing}
               />
               <label
                 htmlFor="replace-image"
-                className="flex items-center justify-center px-3 py-1 text-xs rounded-full bg-zinc-800/80 text-zinc-200 hover:bg-zinc-700 transition-colors backdrop-blur-md border border-zinc-600/30 cursor-pointer"
+                className={`flex items-center justify-center px-3 py-1 text-xs rounded-full bg-zinc-800/80 text-zinc-200 hover:bg-zinc-700 transition-colors backdrop-blur-md border border-zinc-600/30 cursor-pointer ${
+                  isCompressing ? "opacity-50 cursor-not-allowed" : ""
+                }`}
               >
-                Replace
+                {isCompressing ? "Compressing..." : "Replace"}
               </label>
               <button
                 type="button"
                 onClick={removeFile}
                 className="rounded-full w-7 h-7 flex items-center justify-center bg-zinc-800/80 text-zinc-200 hover:bg-zinc-700 transition-colors backdrop-blur-md border border-zinc-600/30"
+                disabled={isCompressing}
               >
                 ×
               </button>

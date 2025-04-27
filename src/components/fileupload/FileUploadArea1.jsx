@@ -1,13 +1,33 @@
 "use client";
 import React, { useState, useCallback } from "react";
 import { UploadCloud } from "lucide-react";
+import imageCompression from "browser-image-compression";
 
 function FileUploadArea1({ files, setFiles }) {
   const [isDragging, setIsDragging] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   const MAX_FILES = 3;
 
   // Only allow JPG and PNG files
   const allowedTypes = ["image/jpeg", "image/png"];
+
+  // Compression options
+  const compressionOptions = {
+    maxSizeMB: 1, // Max file size in MB
+    maxWidthOrHeight: 1920, // Maximum width or height in pixels
+    useWebWorker: true, // Use web worker for better performance
+    initialQuality: 0.8, // Initial quality (0 to 1)
+  };
+
+  // Handle file compression
+  const compressFile = async (file) => {
+    try {
+      return await imageCompression(file, compressionOptions);
+    } catch (error) {
+      console.error("Error compressing file:", error);
+      return file; // Return original file if compression fails
+    }
+  };
 
   const handleDragEnter = useCallback((e) => {
     e.preventDefault();
@@ -31,57 +51,81 @@ function FileUploadArea1({ files, setFiles }) {
   }, []);
 
   const handleDrop = useCallback(
-    (e) => {
+    async (e) => {
       e.preventDefault();
       e.stopPropagation();
       setIsDragging(false);
 
       if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        const newFiles = Array.from(e.dataTransfer.files).filter((file) =>
+        const droppedFiles = Array.from(e.dataTransfer.files).filter((file) =>
           allowedTypes.includes(file.type)
         );
 
-        if (newFiles.length === 0) {
+        if (droppedFiles.length === 0) {
           alert("Please upload only JPG or PNG files");
           return;
         }
 
-        const totalFiles = files.length + newFiles.length;
+        const totalFiles = files.length + droppedFiles.length;
         if (totalFiles > MAX_FILES) {
           alert(`You can only upload up to ${MAX_FILES} photos`);
           return;
         }
 
-        setFiles((prevFiles) =>
-          [...prevFiles, ...newFiles].slice(0, MAX_FILES)
-        );
-        e.dataTransfer.clearData();
+        setIsCompressing(true);
+        try {
+          // Compress each file
+          const compressedFiles = await Promise.all(
+            droppedFiles.map(compressFile)
+          );
+          
+          setFiles((prevFiles) =>
+            [...prevFiles, ...compressedFiles].slice(0, MAX_FILES)
+          );
+        } catch (error) {
+          console.error("Error processing files:", error);
+        } finally {
+          setIsCompressing(false);
+          e.dataTransfer.clearData();
+        }
       }
     },
     [files, setFiles]
   );
 
   const handleFileChange = useCallback(
-    (e) => {
+    async (e) => {
       if (e.target.files && e.target.files.length > 0) {
-        const newFiles = Array.from(e.target.files).filter((file) =>
+        const selectedFiles = Array.from(e.target.files).filter((file) =>
           allowedTypes.includes(file.type)
         );
 
-        if (newFiles.length === 0) {
+        if (selectedFiles.length === 0) {
           alert("Please upload only JPG or PNG files");
           return;
         }
 
-        const totalFiles = files.length + newFiles.length;
+        const totalFiles = files.length + selectedFiles.length;
         if (totalFiles > MAX_FILES) {
           alert(`You can only upload up to ${MAX_FILES} photos`);
           return;
         }
 
-        setFiles((prevFiles) =>
-          [...prevFiles, ...newFiles].slice(0, MAX_FILES)
-        );
+        setIsCompressing(true);
+        try {
+          // Compress each file
+          const compressedFiles = await Promise.all(
+            selectedFiles.map(compressFile)
+          );
+          
+          setFiles((prevFiles) =>
+            [...prevFiles, ...compressedFiles].slice(0, MAX_FILES)
+          );
+        } catch (error) {
+          console.error("Error processing files:", error);
+        } finally {
+          setIsCompressing(false);
+        }
       }
     },
     [files, setFiles]
@@ -113,41 +157,60 @@ function FileUploadArea1({ files, setFiles }) {
         }}
       >
         <div className="flex flex-col items-center justify-center">
-          <div
-            className={`rounded-full p-4 mb-6 transition-all duration-300 ${
-              isDragging ? "bg-zinc-700/50 shadow-lg" : "bg-zinc-800/50"
-            }`}
-          >
-            <UploadCloud
-              className={`w-10 h-10 transition-all duration-300 ${
-                isDragging ? "text-zinc-200" : "text-zinc-400"
-              }`}
-              strokeWidth={1.5}
-            />
-          </div>
-          <p className="mb-2 text-sm font-medium text-zinc-200">
-            {isDragging ? "Drop to upload" : "Upload your images"}
-          </p>
-          <p className="text-xs text-zinc-400 max-w-xs mx-auto">
-            Drag and drop your files here, or click to browse
-            <span className="block mt-1 text-zinc-500">
-              Max 3 photos · JPG/PNG only
-            </span>
-          </p>
-          <input
-            id="file-upload"
-            type="file"
-            accept=".jpg,.jpeg,.png"
-            className="hidden"
-            onChange={handleFileChange}
-            multiple
-          />
-          <label
-            htmlFor="file-upload"
-            className="mt-6 px-6 py-2 rounded-full text-sm bg-gradient-to-b from-zinc-700 to-zinc-800 text-zinc-100 cursor-pointer hover:from-zinc-600 hover:to-zinc-700 transition-all duration-300 shadow-lg shadow-zinc-900/30 border border-zinc-600/30 backdrop-blur-md"
-          >
-            Select images
-          </label>
+          {isCompressing ? (
+            <>
+              <div className="animate-pulse rounded-full p-4 mb-6 bg-zinc-700/50">
+                <UploadCloud
+                  className="w-10 h-10 text-zinc-300"
+                  strokeWidth={1.5}
+                />
+              </div>
+              <p className="mb-2 text-sm font-medium text-zinc-200">
+                Compressing images...
+              </p>
+            </>
+          ) : (
+            <>
+              <div
+                className={`rounded-full p-4 mb-6 transition-all duration-300 ${
+                  isDragging ? "bg-zinc-700/50 shadow-lg" : "bg-zinc-800/50"
+                }`}
+              >
+                <UploadCloud
+                  className={`w-10 h-10 transition-all duration-300 ${
+                    isDragging ? "text-zinc-200" : "text-zinc-400"
+                  }`}
+                  strokeWidth={1.5}
+                />
+              </div>
+              <p className="mb-2 text-sm font-medium text-zinc-200">
+                {isDragging ? "Drop to upload" : "Upload your images"}
+              </p>
+              <p className="text-xs text-zinc-400 max-w-xs mx-auto">
+                Drag and drop your files here, or click to browse
+                <span className="block mt-1 text-zinc-500">
+                  Max 3 photos · JPG/PNG only · Will be compressed
+                </span>
+              </p>
+              <input
+                id="file-upload"
+                type="file"
+                accept=".jpg,.jpeg,.png"
+                className="hidden"
+                onChange={handleFileChange}
+                multiple
+                disabled={isCompressing}
+              />
+              <label
+                htmlFor="file-upload"
+                className={`mt-6 px-6 py-2 rounded-full text-sm bg-gradient-to-b from-zinc-700 to-zinc-800 text-zinc-100 cursor-pointer hover:from-zinc-600 hover:to-zinc-700 transition-all duration-300 shadow-lg shadow-zinc-900/30 border border-zinc-600/30 backdrop-blur-md ${
+                  isCompressing ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+              >
+                Select images
+              </label>
+            </>
+          )}
         </div>
       </div>
 
@@ -165,13 +228,17 @@ function FileUploadArea1({ files, setFiles }) {
                 className="w-full h-auto object-cover aspect-video"
               />
               <div className="absolute bottom-0 left-0 right-0 p-3 flex justify-between items-center z-20">
-                <span className="text-sm text-zinc-200 font-medium truncate max-w-[80%]">
-                  {file.name}
-                </span>
+                <div className="text-sm text-zinc-200 font-medium truncate max-w-[80%]">
+                  <span className="block truncate">{file.name}</span>
+                  <span className="text-xs text-zinc-400">
+                    {(file.size / 1024).toFixed(1)} KB
+                  </span>
+                </div>
                 <button
                   type="button"
                   onClick={() => removeFile(index)}
                   className="rounded-full w-7 h-7 flex items-center justify-center bg-zinc-800/80 text-zinc-200 hover:bg-zinc-700 transition-colors backdrop-blur-md border border-zinc-600/30"
+                  disabled={isCompressing}
                 >
                   ×
                 </button>
@@ -187,10 +254,13 @@ function FileUploadArea1({ files, setFiles }) {
                 className="hidden"
                 onChange={handleFileChange}
                 multiple
+                disabled={isCompressing}
               />
               <label
                 htmlFor="add-more-files"
-                className="flex flex-col items-center justify-center w-full h-full p-4 border-2 border-dashed border-zinc-700/50 rounded-lg cursor-pointer hover:bg-zinc-800/30 transition-all"
+                className={`flex flex-col items-center justify-center w-full h-full p-4 border-2 border-dashed border-zinc-700/50 rounded-lg cursor-pointer hover:bg-zinc-800/30 transition-all ${
+                  isCompressing ? "opacity-50 cursor-not-allowed" : ""
+                }`}
               >
                 <UploadCloud
                   className="w-8 h-8 text-zinc-500 mb-2"
