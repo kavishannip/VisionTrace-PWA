@@ -42,11 +42,12 @@ export default function RootLayout({ children }) {
           </div>
           <main>
             {children}
+            <Analytics />
           </main>
           <div>
             <Footer />
           </div>
-          <Analytics />
+          
         </body>
       </ToggleProvider>
     </html>
