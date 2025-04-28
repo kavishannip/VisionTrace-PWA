@@ -24,3 +24,6 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+body {
+  @apply bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950;
+}
