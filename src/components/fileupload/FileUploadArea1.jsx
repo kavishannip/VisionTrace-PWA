@@ -78,7 +78,7 @@ function FileUploadArea1({ files, setFiles }) {
           const compressedFiles = await Promise.all(
             droppedFiles.map(compressFile)
           );
-          
+
           setFiles((prevFiles) =>
             [...prevFiles, ...compressedFiles].slice(0, MAX_FILES)
           );
@@ -117,7 +117,7 @@ function FileUploadArea1({ files, setFiles }) {
           const compressedFiles = await Promise.all(
             selectedFiles.map(compressFile)
           );
-          
+
           setFiles((prevFiles) =>
             [...prevFiles, ...compressedFiles].slice(0, MAX_FILES)
           );
