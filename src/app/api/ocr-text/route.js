@@ -4,7 +4,6 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 // Helper function to sleep with jitter
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/*************  ✨ Windsurf Command 🌟  *************/
 // Retry with exponential backoff and jitter
 async function retryWithBackoff(fn, maxRetries = 3, baseDelayMs = 1000) {
   let retries = 0;
@@ -16,7 +15,6 @@ async function retryWithBackoff(fn, maxRetries = 3, baseDelayMs = 1000) {
       if (retries > maxRetries || !isRetryableError(error)) {
         throw error;
       }
-
       // Calculate delay with exponential backoff and jitter
       const exponentialDelay = baseDelayMs * Math.pow(2, retries);
       const jitter = Math.random() * 0.3 * exponentialDelay; // 0-30% jitter
@@ -27,17 +25,10 @@ async function retryWithBackoff(fn, maxRetries = 3, baseDelayMs = 1000) {
           delay
         )}ms (attempt ${retries} of ${maxRetries})...`
       );
-
-      console.log(
-        `Retrying request after ${Math.round(
-          delay
-        )}ms (attempt ${retries} of ${maxRetries})...`
-      );
       await sleep(delay);
     }
   }
 }
-/*******  12d2d52a-f389-4bdb-84d6-7b2ef8361635  *******/
 
 // Determine if error is retryable (rate limits, temporary server issues)
 function isRetryableError(error) {

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { UploadCloud } from "lucide-react";
 import imageCompression from "browser-image-compression";
 
@@ -18,6 +18,65 @@ function FileUploadArea2({ files, setFiles }) {
     useWebWorker: true, // Use web worker for better performance
     initialQuality: 0.8, // Initial quality (0 to 1)
   };
+
+  // Handle paste events
+  const handlePaste = useCallback(
+    async (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      let pastedFile = null;
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file && allowedTypes.includes(file.type)) {
+            // Create a proper filename for pasted images
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const extension = file.type === 'image/png' ? 'png' : 'jpg';
+            const renamedFile = new File([file], `pasted-image-${timestamp}.${extension}`, {
+              type: file.type
+            });
+            pastedFile = renamedFile;
+            break; // Only take the first image for single file upload
+          }
+        }
+      }
+
+      if (!pastedFile) return;
+
+      setIsCompressing(true);
+      try {
+        const compressedFile = await compressFile(pastedFile);
+        setFiles([compressedFile]);
+      } catch (error) {
+        console.error("Error processing pasted file:", error);
+        setFiles([pastedFile]); // Use original file if compression fails
+      } finally {
+        setIsCompressing(false);
+      }
+    },
+    [setFiles]
+  );
+
+  // Add global paste event listener
+  useEffect(() => {
+    const handleGlobalPaste = (e) => {
+      // Only handle paste if the target is not an input or textarea
+      if (
+        e.target.tagName !== 'INPUT' && 
+        e.target.tagName !== 'TEXTAREA' && 
+        !e.target.isContentEditable
+      ) {
+        handlePaste(e);
+      }
+    };
+
+    document.addEventListener('paste', handleGlobalPaste);
+    return () => {
+      document.removeEventListener('paste', handleGlobalPaste);
+    };
+  }, [handlePaste]);
 
   // Handle file compression
   const compressFile = async (file) => {
@@ -56,27 +115,47 @@ function FileUploadArea2({ files, setFiles }) {
       e.stopPropagation();
       setIsDragging(false);
 
+      let droppedFile = null;
+
+      // Handle files from dataTransfer.files
       if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        const newFile = e.dataTransfer.files[0];
-
-        if (!allowedTypes.includes(newFile.type)) {
-          alert("Please upload only JPG or PNG files");
-          return;
+        const file = e.dataTransfer.files[0];
+        if (allowedTypes.includes(file.type)) {
+          droppedFile = file;
         }
+      }
 
-        // Compress the file
-        setIsCompressing(true);
-        try {
-          const compressedFile = await compressFile(newFile);
-          // Replace any existing file
-          setFiles([compressedFile]);
-        } catch (error) {
-          console.error("Error compressing file:", error);
-          setFiles([newFile]); // Use original file if compression fails
-        } finally {
-          setIsCompressing(false);
-          e.dataTransfer.clearData();
+      // Handle images from dataTransfer.items (for drag from browser/other apps)
+      if (!droppedFile && e.dataTransfer.items) {
+        for (let i = 0; i < e.dataTransfer.items.length; i++) {
+          const item = e.dataTransfer.items[i];
+          if (item.kind === 'file' && item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file && allowedTypes.includes(file.type)) {
+              droppedFile = file;
+              break;
+            }
+          }
         }
+      }
+
+      if (!droppedFile) {
+        alert("Please upload only JPG or PNG files");
+        return;
+      }
+
+      // Compress the file
+      setIsCompressing(true);
+      try {
+        const compressedFile = await compressFile(droppedFile);
+        // Replace any existing file
+        setFiles([compressedFile]);
+      } catch (error) {
+        console.error("Error compressing file:", error);
+        setFiles([droppedFile]); // Use original file if compression fails
+      } finally {
+        setIsCompressing(false);
+        e.dataTransfer.clearData();
       }
     },
     [setFiles]
@@ -163,7 +242,7 @@ function FileUploadArea2({ files, setFiles }) {
                   {isDragging ? "Drop to upload" : "Upload your image"}
                 </p>
                 <p className="text-xs text-zinc-400 max-w-xs mx-auto">
-                  Drag and drop your file here, or click to browse
+                  Drag and drop your file here, paste from clipboard, or click to browse
                   <span className="block mt-1 text-zinc-500">
                     JPG/PNG only · Will be compressed
                   </span>

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { UploadCloud } from "lucide-react";
 import imageCompression from "browser-image-compression";
 
@@ -18,6 +18,74 @@ function FileUploadArea1({ files, setFiles }) {
     useWebWorker: true, // Use web worker for better performance
     initialQuality: 0.8, // Initial quality (0 to 1)
   };
+
+  // Handle paste events
+  const handlePaste = useCallback(
+    async (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const imageFiles = [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file && allowedTypes.includes(file.type)) {
+            // Create a proper filename for pasted images
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const extension = file.type === 'image/png' ? 'png' : 'jpg';
+            const renamedFile = new File([file], `pasted-image-${timestamp}.${extension}`, {
+              type: file.type
+            });
+            imageFiles.push(renamedFile);
+          }
+        }
+      }
+
+      if (imageFiles.length === 0) return;
+
+      const totalFiles = files.length + imageFiles.length;
+      if (totalFiles > MAX_FILES) {
+        alert(`You can only upload up to ${MAX_FILES} photos`);
+        return;
+      }
+
+      setIsCompressing(true);
+      try {
+        const compressedFiles = await Promise.all(
+          imageFiles.map(compressFile)
+        );
+
+        setFiles((prevFiles) =>
+          [...prevFiles, ...compressedFiles].slice(0, MAX_FILES)
+        );
+      } catch (error) {
+        console.error("Error processing pasted files:", error);
+      } finally {
+        setIsCompressing(false);
+      }
+    },
+    [files, setFiles]
+  );
+
+  // Add global paste event listener
+  useEffect(() => {
+    const handleGlobalPaste = (e) => {
+      // Only handle paste if the target is not an input or textarea
+      if (
+        e.target.tagName !== 'INPUT' && 
+        e.target.tagName !== 'TEXTAREA' && 
+        !e.target.isContentEditable
+      ) {
+        handlePaste(e);
+      }
+    };
+
+    document.addEventListener('paste', handleGlobalPaste);
+    return () => {
+      document.removeEventListener('paste', handleGlobalPaste);
+    };
+  }, [handlePaste]);
 
   // Handle file compression
   const compressFile = async (file) => {
@@ -56,38 +124,55 @@ function FileUploadArea1({ files, setFiles }) {
       e.stopPropagation();
       setIsDragging(false);
 
+      const droppedFiles = [];
+      
+      // Handle files from dataTransfer.files
       if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        const droppedFiles = Array.from(e.dataTransfer.files).filter((file) =>
+        const fileList = Array.from(e.dataTransfer.files).filter((file) =>
           allowedTypes.includes(file.type)
         );
-
-        if (droppedFiles.length === 0) {
-          alert("Please upload only JPG or PNG files");
-          return;
+        droppedFiles.push(...fileList);
+      }
+      
+      // Handle images from dataTransfer.items (for drag from browser/other apps)
+      if (e.dataTransfer.items) {
+        for (let i = 0; i < e.dataTransfer.items.length; i++) {
+          const item = e.dataTransfer.items[i];
+          if (item.kind === 'file' && item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file && allowedTypes.includes(file.type)) {
+              droppedFiles.push(file);
+            }
+          }
         }
+      }
 
-        const totalFiles = files.length + droppedFiles.length;
-        if (totalFiles > MAX_FILES) {
-          alert(`You can only upload up to ${MAX_FILES} photos`);
-          return;
-        }
+      if (droppedFiles.length === 0) {
+        alert("Please upload only JPG or PNG files");
+        return;
+      }
 
-        setIsCompressing(true);
-        try {
-          // Compress each file
-          const compressedFiles = await Promise.all(
-            droppedFiles.map(compressFile)
-          );
+      const totalFiles = files.length + droppedFiles.length;
+      if (totalFiles > MAX_FILES) {
+        alert(`You can only upload up to ${MAX_FILES} photos`);
+        return;
+      }
 
-          setFiles((prevFiles) =>
-            [...prevFiles, ...compressedFiles].slice(0, MAX_FILES)
-          );
-        } catch (error) {
-          console.error("Error processing files:", error);
-        } finally {
-          setIsCompressing(false);
-          e.dataTransfer.clearData();
-        }
+      setIsCompressing(true);
+      try {
+        // Compress each file
+        const compressedFiles = await Promise.all(
+          droppedFiles.map(compressFile)
+        );
+
+        setFiles((prevFiles) =>
+          [...prevFiles, ...compressedFiles].slice(0, MAX_FILES)
+        );
+      } catch (error) {
+        console.error("Error processing files:", error);
+      } finally {
+        setIsCompressing(false);
+        e.dataTransfer.clearData();
       }
     },
     [files, setFiles]
@@ -187,7 +272,7 @@ function FileUploadArea1({ files, setFiles }) {
                 {isDragging ? "Drop to upload" : "Upload your images"}
               </p>
               <p className="text-xs text-zinc-400 max-w-xs mx-auto">
-                Drag and drop your files here, or click to browse
+                Drag and drop your files here, paste from clipboard, or click to browse
                 <span className="block mt-1 text-zinc-500">
                   Max 3 photos · JPG/PNG only · Will be compressed
                 </span>
